@@ -13,3 +13,8 @@
     hosts:
       test-netology:
         ansible_connection: local
+
+  fedora:
+    hosts:
+      fedora_container:
+        ansible_connection: docker

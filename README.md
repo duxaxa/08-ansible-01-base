@@ -520,21 +520,286 @@ ubuntu                     : ok=3    changed=0    unreachable=0    failed=0    s
 </details>
 
 
-#### 12. Заполните `README.md` ответами на вопросы. Сделайте `git push` в ветку `master`. В ответе отправьте ссылку на ваш открытый репозиторий с изменённым `playbook` и заполненным `README.md`.
+#### 12. Заполните `README.md` ответами на вопросы. Сделайте `git push` в ветку `master`. В ответе отправьте ссылку на ваш открытый репозиторий с изменённым `playbook` и заполненным `README.md`.  
 
-## Необязательная часть
-
-1. При помощи `ansible-vault` расшифруйте все зашифрованные файлы с переменными.
-2. Зашифруйте отдельное значение `PaSSw0rd` для переменной `some_fact` паролем `netology`. Добавьте полученное значение в `group_vars/all/exmp.yml`.
-3. Запустите `playbook`, убедитесь, что для нужных хостов применился новый `fact`.
-4. Добавьте новую группу хостов `fedora`, самостоятельно придумайте для неё переменную. В качестве образа можно использовать [этот](https://hub.docker.com/r/pycontribs/fedora).
-5. Напишите скрипт на bash: автоматизируйте поднятие необходимых контейнеров, запуск ansible-playbook и остановку контейнеров.
-6. Все изменения должны быть зафиксированы и отправлены в вашей личный репозиторий.
+ДЗ: https://github.com/duxaxa/08-ansible-01-base/tree/main
 
 ---
 
-### Как оформить ДЗ?
+## Необязательная часть
 
-Выполненное домашнее задание пришлите ссылкой на .md-файл в вашем репозитории.
+#### 1. При помощи `ansible-vault` расшифруйте все зашифрованные файлы с переменными.  
+
+ 
+```shell
+
+vagrant@test-netology:/vagrant/playbook$ ansible-vault decrypt group_vars/el/examp.yml
+Vault password:
+Decryption successful
+
+vagrant@test-netology:/vagrant/playbook$ ansible-vault decrypt group_vars/deb/examp.yml
+Vault password:
+Decryption successful
+
+vagrant@test-netology:/vagrant/playbook$ for f in $(ls group_vars/{el,deb}/examp.yml); do echo -e "$(cat ${f})\n"; done
+---
+  some_fact: "deb default fact"
+
+---
+  some_fact: "el default fact"
+
+```
+
+#### 2. Зашифруйте отдельное значение `PaSSw0rd` для переменной `some_fact` паролем `netology`. Добавьте полученное значение в `group_vars/all/exmp.yml`.  
+
+```shell
+vagrant@test-netology:/vagrant/playbook$ ansible-vault encrypt_string PaSSw0rd
+New Vault password:
+Confirm New Vault password:
+!vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          36663838303134303032353337613763663737633066666365393564363461613831353833393539
+          6264383561356233383033313536343333396338646331340a323861353631303436643132383361
+          66376234396362303339653837323539383939336364383233313763656236386433666132616265
+          3566646338326435320a373637633430383136353162623630383865363234613166393932386637
+          3432
+Encryption successful
+```
+
+Редактируем файл `group_vars/all/exmp.yml`:  
+```yaml
+---
+  some_fact: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          36663838303134303032353337613763663737633066666365393564363461613831353833393539
+          6264383561356233383033313536343333396338646331340a323861353631303436643132383361
+          66376234396362303339653837323539383939336364383233313763656236386433666132616265
+          3566646338326435320a373637633430383136353162623630383865363234613166393932386637
+          3432
+```
+
+#### 3. Запустите `playbook`, убедитесь, что для нужных хостов применился новый `fact`.  
+
+<details>
+  <summary>Результат работы playbook:</summary>
+  
+```shell
+vagrant@test-netology:/vagrant/playbook$ ansible-playbook site.yml -i inventory/prod.yml --ask-vault-password
+Vault password:
+
+PLAY [Print os facts] ************************************************************************************************************************
+
+TASK [Gathering Facts] ***********************************************************************************************************************
+ok: [test-netology]
+ok: [ubuntu]
+ok: [centos7]
+
+TASK [Print OS] ******************************************************************************************************************************
+ok: [test-netology] => {
+    "msg": "Ubuntu"
+}
+ok: [centos7] => {
+    "msg": "CentOS"
+}
+ok: [ubuntu] => {
+    "msg": "Ubuntu"
+}
+
+TASK [Print fact] ****************************************************************************************************************************
+ok: [test-netology] => {
+    "msg": "PaSSw0rd"
+}
+ok: [centos7] => {
+    "msg": "el default fact"
+}
+ok: [ubuntu] => {
+    "msg": "deb default fact"
+}
+
+PLAY RECAP ***********************************************************************************************************************************
+centos7                    : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+test-netology              : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+ubuntu                     : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
+
+</details>
+
+
+#### 4. Добавьте новую группу хостов `fedora`, самостоятельно придумайте для неё переменную. В качестве образа можно использовать [этот](https://hub.docker.com/r/pycontribs/fedora).  
+
+Подготовим новый контейнер `fedora_container`
+```shell
+vagrant@test-netology:/vagrant/playbook$ docker run -d -t --rm --name fedora_container pycontribs/fedora
+ad77e9b0c34ff049b0b3a7a0b51be73d1191fbe3046d432b745c5a645a66d96e
+
+vagrant@test-netology:/vagrant/playbook$ docker ps
+CONTAINER ID   IMAGE                 COMMAND       CREATED         STATUS         PORTS     NAMES
+ad77e9b0c34f   pycontribs/fedora     "/bin/bash"   6 seconds ago   Up 4 seconds             fedora_container
+f4610c2d2b11   pycontribs/centos:7   "/bin/bash"   15 hours ago    Up 15 hours              centos7
+d4bf389015aa   pycontribs/ubuntu     "/bin/bash"   15 hours ago    Up 15 hours              ubuntu
+```
+
+Редактируем файл [inventory/prod.yml](playbook/inventory/prod.yml), добавляем группу `fedora`:  
+
+```yaml
+  fedora:
+    hosts:
+      fedora_container:
+        ansible_connection: docker
+```
+
+Добавляем файл с переменными для группы `fedora` [group_vars/fedora/examp.yml](playbook/group_vars/fedora/examp.yml):  
+```yaml
+---
+  some_fact: "Fedora default fact"
+```
+
+<details>
+  <summary>Результат работы playbook на окружении 'prod.yaml' с новой группой 'fedora':</summary>
+  
+```shell
+vagrant@test-netology:/vagrant/playbook$ ansible-playbook site.yml -i inventory/prod.yml --ask-vault-password
+Vault password:
+
+PLAY [Print os facts] ************************************************************************************************************************
+
+TASK [Gathering Facts] ***********************************************************************************************************************
+ok: [test-netology]
+ok: [fedora_container]
+ok: [ubuntu]
+ok: [centos7]
+
+TASK [Print OS] ******************************************************************************************************************************
+ok: [test-netology] => {
+    "msg": "Ubuntu"
+}
+ok: [centos7] => {
+    "msg": "CentOS"
+}
+ok: [ubuntu] => {
+    "msg": "Ubuntu"
+}
+ok: [fedora_container] => {
+    "msg": "Fedora"
+}
+
+TASK [Print fact] ****************************************************************************************************************************
+ok: [test-netology] => {
+    "msg": "PaSSw0rd"
+}
+ok: [centos7] => {
+    "msg": "el default fact"
+}
+ok: [ubuntu] => {
+    "msg": "deb default fact"
+}
+ok: [fedora_container] => {
+    "msg": "Fedora default fact"
+}
+
+PLAY RECAP ***********************************************************************************************************************************
+centos7                    : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+fedora_container           : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+test-netology              : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+ubuntu                     : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
+
+</details>
+
+
+#### 5. Напишите скрипт на bash: автоматизируйте поднятие необходимых контейнеров, запуск ansible-playbook и остановку контейнеров.  
+
+Скрипт [run_play_stop.sh](bash/run_play_stop.sh).
+
+<details>
+  <summary>Результат работы скрипта 'run_play_stop.sh':</summary>
+  
+```shell
+vagrant@test-netology:/vagrant/playbook$ ./run_play_stop.sh
+
+--- Launching docker containers... : ---
+
+--- Launching a docker container "fedora_container" from image "pycontribs/fedora": ---
+--- Done. ---
+
+--- Launching a docker container "ubuntu" from image "pycontribs/ubuntu": ---
+--- Done. ---
+
+--- Launching a docker container "centos7" from image "pycontribs/centos:7": ---
+--- Done. ---
+
+
+--- The following docker containers are running: ---
+
+CONTAINER ID   IMAGE                 COMMAND       CREATED         STATUS                  PORTS     NAMES
+6c6475cd79b4   pycontribs/centos:7   "/bin/bash"   1 second ago    Up Less than a second             centos7
+61b46e7fcb7a   pycontribs/ubuntu     "/bin/bash"   2 seconds ago   Up 1 second                       ubuntu
+8a8ea108f873   pycontribs/fedora     "/bin/bash"   3 seconds ago   Up 1 second                       fedora_container
+
+--- Changing the directory with ansible playbook "/vagrant/playbook": ---
+
+
+--- Running ansible playbook: ---
+
+
+PLAY [Print os facts] ************************************************************************************************************************
+
+TASK [Gathering Facts] ***********************************************************************************************************************
+ok: [test-netology]
+ok: [ubuntu]
+ok: [fedora_container]
+ok: [centos7]
+
+TASK [Print OS] ******************************************************************************************************************************
+ok: [test-netology] => {
+    "msg": "Ubuntu"
+}
+ok: [centos7] => {
+    "msg": "CentOS"
+}
+ok: [ubuntu] => {
+    "msg": "Ubuntu"
+}
+ok: [fedora_container] => {
+    "msg": "Fedora"
+}
+
+TASK [Print fact] ****************************************************************************************************************************
+ok: [test-netology] => {
+    "msg": "PaSSw0rd"
+}
+ok: [centos7] => {
+    "msg": "el default fact"
+}
+ok: [ubuntu] => {
+    "msg": "deb default fact"
+}
+ok: [fedora_container] => {
+    "msg": "Fedora default fact"
+}
+
+PLAY RECAP ***********************************************************************************************************************************
+centos7                    : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+fedora_container           : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+test-netology              : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+ubuntu                     : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+
+
+--- Stopping docker containers... : ---
+--- Stoping a docker container "fedora_container" from image "pycontribs/fedora": ---
+--- Done. ---
+
+--- Stoping a docker container "ubuntu" from image "pycontribs/ubuntu": ---
+--- Done. ---
+
+--- Stoping a docker container "centos7" from image "pycontribs/centos:7": ---
+--- Done. ---
+
+
+```
+
+</details>
+
+
 
 ---
