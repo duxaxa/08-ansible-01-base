@@ -25,6 +25,7 @@ function start_containers() {
           echo -e "--- Done. ---\n"
         else
           echo -e "--- Error while starting docker container... Exit. ---\n"
+          exit 1
       fi
     done
 }
@@ -40,6 +41,7 @@ function stop_containers() {
             echo -e "--- Done. ---\n"
           else
             echo -e "--- Error while stoping docker container... Exit. ---\n"
+            exit 1
         fi
 
       done
